@@ -743,13 +743,6 @@
             <tbody>${linhas}</tbody>
           </table>
         
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
-      });
-    }
-  </script>
 
 </body>
         </html>
@@ -815,6 +808,7 @@
     window.excluirPorId = excluirPorId;
   </script>
 
+
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -822,6 +816,7 @@
       });
     }
   </script>
+
 
 </body>
 </html>
