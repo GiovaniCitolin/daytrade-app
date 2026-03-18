@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#123e7a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Day Trade" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icons/icon-180.png" />
+  <title>Controle Fiscal - Day Trade</title>
+  <style>
+    :root{
+      --azul:#123e7a;
+      --azul-claro:#eaf2ff;
+      --verde:#169c39;
+      --verde-escuro:#0e7a2b;
+      --vermelho:#c7392f;
+      --vermelho-escuro:#99271f;
+      --borda:#d7dfeb;
+      --texto:#1f2937;
+      --sombra:0 8px 24px rgba(0,0,0,.08);
+      --radius:18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial, Helvetica, sans-serif;
+      background:linear-gradient(180deg,#f6f8fc 0%, #eef3f9 100%);
+      color:var(--texto);
+      padding:20px;
+    }
+    .container{width:min(1180px,100%);margin:0 auto;}
+    .card{
+      background:#fff;border:1px solid var(--borda);border-radius:var(--radius);
+      box-shadow:var(--sombra);overflow:hidden;margin-bottom:18px;
+    }
+    .header{
+      background:var(--azul);color:#fff;text-align:center;padding:22px 16px;
+      font-size:clamp(24px,4vw,40px);font-weight:700;
+    }
+    .content{padding:22px}
+    h2.section-title{
+      text-align:center;color:var(--azul);margin:8px 0 22px;
+      font-size:clamp(22px,3vw,32px);
+    }
+    .form-grid{
+      display:grid;grid-template-columns:1fr 1fr;gap:16px 24px;align-items:end;
+    }
+    .field{display:flex;flex-direction:column;gap:8px}
+    .field label{font-weight:700;color:var(--azul);font-size:18px}
+    .field input{
+      width:100%;padding:14px 16px;border:1px solid #c9d4e2;border-radius:12px;
+      font-size:18px;outline:none;background:#fff;
+    }
+    .field input[readonly]{background:#f3f6fb;color:#41556f;font-weight:700}
+    .hint{font-size:14px;color:#5b6d84;margin-top:-2px}
+    .actions{
+      margin-top:22px;display:flex;gap:12px;flex-wrap:wrap;justify-content:center;
+    }
+    button{
+      border:none;border-radius:12px;padding:14px 20px;font-size:18px;font-weight:700;
+      color:#fff;cursor:pointer;transition:.18s ease;box-shadow:0 4px 10px rgba(0,0,0,.15);
+    }
+    button:hover{transform:translateY(-1px)}
+    .btn-save{background:linear-gradient(180deg,#23b748,#138f33)}
+    .btn-edit{background:linear-gradient(180deg,#2a69c7,#1d4f9f)}
+    .btn-delete{background:linear-gradient(180deg,#dd4d43,#ba332b)}
+    .btn-clear{background:linear-gradient(180deg,#8693a6,#6c7888)}
+    .btn-history{background:linear-gradient(180deg,#6d28d9,#5b21b6)}
+    .btn-export{background:linear-gradient(180deg,#0f766e,#0b5d56)}
+    .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+    .summary-box{
+      background:var(--azul-claro);border:1px solid #d8e7ff;border-radius:16px;
+      padding:20px;text-align:center;
+    }
+    .summary-box .label{color:var(--azul);font-weight:700;font-size:17px;margin-bottom:8px}
+    .summary-box .value{font-size:clamp(22px,3.2vw,34px);font-weight:700}
+    .positive{color:var(--verde)}
+    .negative{color:var(--vermelho)}
+    .toolbar{
+      display:flex;justify-content:space-between;gap:12px;align-items:center;
+      margin-bottom:14px;flex-wrap:wrap;
+    }
+    .toolbar small{color:#5b6d84;font-size:14px;max-width:780px}
+    .table-wrap{overflow:auto;border:1px solid var(--borda);border-radius:16px}
+    table{width:100%;border-collapse:collapse;min-width:1050px;background:#fff}
+    th, td{
+      padding:14px 12px;text-align:center;border-bottom:1px solid #e2e8f0;font-size:16px;
+    }
+    th{background:#eef4fb;color:var(--azul);font-size:17px}
+    tr:last-child td{border-bottom:none}
+    tr.selected{background:#f7fbff;outline:2px solid #b7d2ff;outline-offset:-2px}
+    .row-actions{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+    .row-actions button{padding:10px 12px;font-size:14px;box-shadow:none}
+    .empty{padding:30px;text-align:center;color:#66758a;font-size:18px}
+    .status{margin-top:10px;text-align:center;font-weight:700;min-height:24px}
+    .status.ok{color:var(--verde-escuro)}
+    .status.warn{color:var(--vermelho-escuro)}
+    .modal{
+      position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;
+      justify-content:center;padding:18px;z-index:1000;
+    }
+    .modal.show{display:flex}
+    .modal-card{
+      width:min(1160px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:20px;
+      box-shadow:0 20px 50px rgba(0,0,0,.22);border:1px solid var(--borda);
+    }
+    .modal-header{
+      display:flex;justify-content:space-between;align-items:center;gap:12px;
+      padding:18px 20px;background:var(--azul);color:#fff;position:sticky;top:0;
+    }
+    .modal-header h3{margin:0;font-size:24px}
+    .modal-body{padding:20px}
+    .close-btn{background:rgba(255,255,255,.18);color:#fff;box-shadow:none;padding:10px 14px}
+    .totals-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px}
+    @media (max-width: 900px){
+      body{padding:12px}
+      .content{padding:16px}
+      .form-grid,.summary,.totals-grid{grid-template-columns:1fr}
+      button{width:100%}
+      .actions{flex-direction:column}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">Controle Fiscal - Day Trade</div>
+      <div style="padding:10px 16px;background:#eef4fb;color:#123e7a;font-weight:700;text-align:center;">Instale este app na tela inicial para usar como aplicativo.</div>
+      <div class="content">
+        <h2 class="section-title">Lançar Resultado do Dia</h2>
+
+        <div class="form-grid">
+          <div class="field">
+            <label for="data">Data</label>
+            <input type="date" id="data" />
+          </div>
+
+          <div class="field">
+            <label for="resultadoBruto">Resultado Bruto do Dia (R$)</label>
+            <input type="number" id="resultadoBruto" step="0.01" placeholder="Ex: 500,00" />
+          </div>
+
+          <div class="field">
+            <label for="taxas">Custos / Taxas (R$)</label>
+            <input type="number" id="taxas" step="0.01" placeholder="Ex: 50,00" />
+          </div>
+
+          <div class="field">
+            <label for="irrf">IRRF Day Trade do Dia (R$)</label>
+            <input type="number" id="irrf" step="0.01" placeholder="Ex: 3,25" />
+            <div class="hint">Informe o IRRF retido na nota, quando houver.</div>
+          </div>
+
+          <div class="field" style="grid-column:1 / -1;">
+            <label for="imposto">DARF estimada do mês</label>
+            <input type="text" id="imposto" readonly />
+            <div class="hint">Já considera prejuízo acumulado e compensação do IRRF do mesmo ano.</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn-save" id="btnSalvar">Salvar Resultado</button>
+          <button class="btn-edit" id="btnEditar">Editar Selecionado</button>
+          <button class="btn-delete" id="btnExcluir">Excluir Selecionado</button>
+          <button class="btn-clear" id="btnLimpar">Limpar Campos</button>
+          <button class="btn-history" id="btnHistorico">Histórico Fiscal</button>
+          <button class="btn-export" id="btnExportar">Salvar Histórico em PDF</button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="content">
+        <div class="summary">
+          <div class="summary-box">
+            <div class="label">Resultado do Dia</div>
+            <div id="resultadoDia" class="value">R$ 0,00</div>
+          </div>
+          <div class="summary-box">
+            <div class="label">Saldo do Mês (após IR)</div>
+            <div id="saldoMes" class="value">R$ 0,00</div>
+          </div>
+          <div class="summary-box">
+            <div class="label">Prejuízo a Compensar</div>
+            <div id="prejuizoCompensar" class="value">R$ 0,00</div>
+          </div>
+          <div class="summary-box">
+            <div class="label">Saldo Geral (após IR)</div>
+            <div id="saldoGeral" class="value">R$ 0,00</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="content">
+        <div class="toolbar">
+          <h2 class="section-title" style="margin:0; text-align:left;">Lançamentos</h2>
+          <small>O app calcula a apuração mensal estimada: resultado líquido do mês, compensação de prejuízos acumulados de day trade e abatimento do IRRF do mesmo ano.</small>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Selecionar</th>
+                <th>Data</th>
+                <th>Resultado Bruto</th>
+                <th>Custos</th>
+                <th>IRRF</th>
+                <th>Resultado do Dia</th>
+                <th>Mês</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaResultados"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="modalHistorico">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Histórico Fiscal Mensal</h3>
+        <button class="close-btn" id="btnFecharHistorico">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="totals-grid">
+          <div class="summary-box">
+            <div class="label">Saldo Geral (após IR)</div>
+            <div id="historicoAcumuladoGeral" class="value">R$ 0,00</div>
+          </div>
+          <div class="summary-box">
+            <div class="label">Prejuízo Atual a Compensar</div>
+            <div id="historicoPrejuizoAtual" class="value">R$ 0,00</div>
+          </div>
+          <div class="summary-box">
+            <div class="label">Meses Lançados</div>
+            <div id="historicoTotalMeses" class="value">0</div>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Total Bruto</th>
+                <th>Total Custos</th>
+                <th>IRRF do Mês</th>
+                <th>Resultado Líquido</th>
+                <th>Prejuízo Compensado</th>
+                <th>Base Tributável</th>
+                <th>IR 20%</th>
+                <th>IRRF Usado</th>
+                <th>DARF Estimada</th>
+                <th>Prejuízo a Compensar</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaHistoricoMensal"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = "daytrade_fiscal_v5";
+
+    const elData = document.getElementById("data");
+    const elBruto = document.getElementById("resultadoBruto");
+    const elTaxas = document.getElementById("taxas");
+    const elIrrf = document.getElementById("irrf");
+    const elDarfMes = document.getElementById("imposto");
+    const elResultadoDia = document.getElementById("resultadoDia");
+    const elSaldoMes = document.getElementById("saldoMes");
+    const elSaldoGeral = document.getElementById("saldoGeral");
+    const elPrejuizoCompensar = document.getElementById("prejuizoCompensar");
+    const elTabela = document.getElementById("tabelaResultados");
+    const elStatus = document.getElementById("status");
+    const btnSalvar = document.getElementById("btnSalvar");
+    const btnEditar = document.getElementById("btnEditar");
+    const btnExcluir = document.getElementById("btnExcluir");
+    const btnLimpar = document.getElementById("btnLimpar");
+    const btnHistorico = document.getElementById("btnHistorico");
+    const btnExportar = document.getElementById("btnExportar");
+    const modalHistorico = document.getElementById("modalHistorico");
+    const btnFecharHistorico = document.getElementById("btnFecharHistorico");
+    const tabelaHistoricoMensal = document.getElementById("tabelaHistoricoMensal");
+    const historicoAcumuladoGeral = document.getElementById("historicoAcumuladoGeral");
+    const historicoPrejuizoAtual = document.getElementById("historicoPrejuizoAtual");
+    const historicoTotalMeses = document.getElementById("historicoTotalMeses");
+
+    let resultados = carregarResultados();
+    let selecionadoId = null;
+    let editandoId = null;
+
+    iniciar();
+
+    function iniciar(){
+      elData.value = hojeISO();
+      atualizarCalculosTela();
+      renderTabela();
+      atualizarResumo();
+      adicionarEventos();
+    }
+
+    function adicionarEventos(){
+      [elBruto, elTaxas, elIrrf, elData].forEach(el => el.addEventListener("input", atualizarCalculosTela));
+      btnSalvar.addEventListener("click", salvarResultado);
+      btnEditar.addEventListener("click", editarSelecionado);
+      btnExcluir.addEventListener("click", excluirSelecionado);
+      btnLimpar.addEventListener("click", limparCampos);
+      btnHistorico.addEventListener("click", abrirHistorico);
+      btnExportar.addEventListener("click", exportarHistoricoPDF);
+      btnFecharHistorico.addEventListener("click", fecharHistorico);
+      modalHistorico.addEventListener("click", (e) => {
+        if(e.target === modalHistorico) fecharHistorico();
+      });
+    }
+
+    function hojeISO(){
+      const agora = new Date();
+      const ano = agora.getFullYear();
+      const mes = String(agora.getMonth() + 1).padStart(2, "0");
+      const dia = String(agora.getDate()).padStart(2, "0");
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function formatarMoeda(valor){
+      return Number(valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL"
+      });
+    }
+
+    function formatarData(dataISO){
+      if(!dataISO) return "";
+      const [ano, mes, dia] = dataISO.split("-");
+      return `${dia}/${mes}/${ano}`;
+    }
+
+    function formatarMes(anoMes){
+      const [ano, mes] = anoMes.split("-");
+      return `${mes}/${ano}`;
+    }
+
+    function parseNumero(valor){
+      const numero = parseFloat(valor);
+      return isNaN(numero) ? 0 : numero;
+    }
+
+    function obterAnoMes(dataISO){
+      return dataISO.slice(0, 7);
+    }
+
+    function calcularResultadoDia(bruto, taxas){
+      return bruto - taxas;
+    }
+
+    function calcularResumoFiscal(previewRegistro = null){
+      const agregados = {};
+
+      resultados.forEach(item => {
+        if(previewRegistro && item.id === previewRegistro.id) return;
+        const chave = obterAnoMes(item.data);
+        if(!agregados[chave]){
+          agregados[chave] = { bruto:0, taxas:0, irrf:0, resultadoMes:0 };
+        }
+        agregados[chave].bruto += item.bruto;
+        agregados[chave].taxas += item.taxas;
+        agregados[chave].irrf += item.irrf || 0;
+        agregados[chave].resultadoMes += item.resultadoDia;
+      });
+
+      if(previewRegistro){
+        const chave = obterAnoMes(previewRegistro.data);
+        if(!agregados[chave]){
+          agregados[chave] = { bruto:0, taxas:0, irrf:0, resultadoMes:0 };
+        }
+        agregados[chave].bruto += previewRegistro.bruto;
+        agregados[chave].taxas += previewRegistro.taxas;
+        agregados[chave].irrf += previewRegistro.irrf || 0;
+        agregados[chave].resultadoMes += previewRegistro.resultadoDia;
+      }
+
+      const mesesOrdenados = Object.keys(agregados).sort();
+      const resumo = {};
+      let prejuizoAcumulado = 0;
+      let anoAtual = null;
+      let creditoIrrfAno = 0;
+
+      mesesOrdenados.forEach(chave => {
+        const dados = agregados[chave];
+        const ano = chave.slice(0, 4);
+
+        if(ano !== anoAtual){
+          anoAtual = ano;
+          creditoIrrfAno = 0;
+        }
+
+        creditoIrrfAno += dados.irrf || 0;
+
+        let prejuizoCompensado = 0;
+        let baseTributavel = 0;
+
+        if(dados.resultadoMes <= 0){
+          prejuizoAcumulado += Math.abs(dados.resultadoMes);
+        } else {
+          prejuizoCompensado = Math.min(prejuizoAcumulado, dados.resultadoMes);
+          baseTributavel = dados.resultadoMes - prejuizoCompensado;
+          prejuizoAcumulado -= prejuizoCompensado;
+        }
+
+        const irDevido = baseTributavel > 0 ? baseTributavel * 0.20 : 0;
+        const irrfUsado = Math.min(irDevido, creditoIrrfAno);
+        creditoIrrfAno -= irrfUsado;
+        const darfEstimada = Math.max(0, irDevido - irrfUsado);
+        const saldoMesAposIR = dados.resultadoMes - irDevido;
+
+        resumo[chave] = {
+          ...dados,
+          prejuizoCompensado,
+          baseTributavel,
+          irDevido,
+          irrfUsado,
+          darfEstimada,
+          prejuizoAcumulado,
+          saldoMesAposIR
+        };
+      });
+
+      return { resumo, mesesOrdenados, prejuizoFinal: prejuizoAcumulado };
+    }
+
+    function atualizarCalculosTela(){
+      const bruto = parseNumero(elBruto.value);
+      const taxas = parseNumero(elTaxas.value);
+      const irrf = parseNumero(elIrrf.value);
+      const data = elData.value || hojeISO();
+      const resultadoDia = calcularResultadoDia(bruto, taxas);
+
+      const preview = {
+        id: editandoId || "__preview__",
+        data,
+        bruto,
+        taxas,
+        irrf,
+        resultadoDia
+      };
+
+      const { resumo } = calcularResumoFiscal(preview);
+      const chaveMes = obterAnoMes(data);
+      const dadosMes = resumo[chaveMes] || {
+        darfEstimada: 0,
+        saldoMesAposIR: 0,
+        prejuizoAcumulado: 0
+      };
+
+      elDarfMes.value = formatarMoeda(dadosMes.darfEstimada);
+      elResultadoDia.textContent = formatarMoeda(resultadoDia);
+      elResultadoDia.className = "value " + (resultadoDia >= 0 ? "positive" : "negative");
+      elSaldoMes.textContent = formatarMoeda(dadosMes.saldoMesAposIR);
+      elSaldoMes.className = "value " + (dadosMes.saldoMesAposIR >= 0 ? "positive" : "negative");
+      elPrejuizoCompensar.textContent = formatarMoeda(dadosMes.prejuizoAcumulado);
+      elPrejuizoCompensar.className = "value " + (dadosMes.prejuizoAcumulado > 0 ? "negative" : "positive");
+
+      const saldoGeralPreview = Object.values(resumo).reduce((acc, mes) => acc + mes.saldoMesAposIR, 0);
+      elSaldoGeral.textContent = formatarMoeda(saldoGeralPreview);
+      elSaldoGeral.className = "value " + (saldoGeralPreview >= 0 ? "positive" : "negative");
+    }
+
+    function atualizarResumo(){
+      const { resumo, mesesOrdenados, prejuizoFinal } = calcularResumoFiscal();
+      const mesAtual = obterAnoMes(hojeISO());
+      const dadosMesAtual = resumo[mesAtual] || {
+        saldoMesAposIR: 0,
+        darfEstimada: 0,
+        prejuizoAcumulado: prejuizoFinal
+      };
+
+      elSaldoMes.textContent = formatarMoeda(dadosMesAtual.saldoMesAposIR);
+      elSaldoMes.className = "value " + (dadosMesAtual.saldoMesAposIR >= 0 ? "positive" : "negative");
+      elDarfMes.value = formatarMoeda(dadosMesAtual.darfEstimada || 0);
+      elPrejuizoCompensar.textContent = formatarMoeda(prejuizoFinal);
+      elPrejuizoCompensar.className = "value " + (prejuizoFinal > 0 ? "negative" : "positive");
+
+      const saldoGeral = mesesOrdenados.reduce((acc, chave) => acc + resumo[chave].saldoMesAposIR, 0);
+      elSaldoGeral.textContent = formatarMoeda(saldoGeral);
+      elSaldoGeral.className = "value " + (saldoGeral >= 0 ? "positive" : "negative");
+    }
+
+    function salvarResultado(){
+      const data = elData.value;
+      const bruto = parseNumero(elBruto.value);
+      const taxas = parseNumero(elTaxas.value);
+      const irrf = parseNumero(elIrrf.value);
+      const resultadoDia = calcularResultadoDia(bruto, taxas);
+
+      if(!data){
+        mostrarStatus("Informe a data.", "warn");
+        return;
+      }
+
+      if(elBruto.value === ""){
+        mostrarStatus("Informe o resultado bruto do dia.", "warn");
+        return;
+      }
+
+      const registro = {
+        id: editandoId || crypto.randomUUID(),
+        data,
+        bruto,
+        taxas,
+        irrf,
+        resultadoDia,
+        criadoEm: new Date().toISOString()
+      };
+
+      if(editandoId){
+        const indice = resultados.findIndex(item => item.id === editandoId);
+        if(indice !== -1) resultados[indice] = registro;
+        mostrarStatus("Registro atualizado com sucesso.", "ok");
+      }else{
+        resultados.push(registro);
+        mostrarStatus("Resultado salvo com sucesso.", "ok");
+      }
+
+      resultados.sort((a,b) => b.data.localeCompare(a.data));
+      salvarResultadosNoStorage();
+      renderTabela();
+      atualizarResumo();
+      limparCampos();
+    }
+
+    function editarSelecionado(){
+      if(!selecionadoId){
+        mostrarStatus("Selecione um registro para editar.", "warn");
+        return;
+      }
+      preencherFormularioParaEdicao(selecionadoId);
+    }
+
+    function excluirSelecionado(){
+      if(!selecionadoId){
+        mostrarStatus("Selecione um registro para excluir.", "warn");
+        return;
+      }
+
+      const item = resultados.find(r => r.id === selecionadoId);
+      if(!item) return;
+
+      const confirmar = window.confirm(`Deseja realmente excluir o registro do dia ${formatarData(item.data)}?`);
+      if(!confirmar) return;
+
+      resultados = resultados.filter(r => r.id !== selecionadoId);
+      selecionadoId = null;
+      if(editandoId === item.id) editandoId = null;
+      salvarResultadosNoStorage();
+      renderTabela();
+      atualizarResumo();
+      limparCampos(false);
+      mostrarStatus("Registro excluído com sucesso.", "ok");
+    }
+
+    function preencherFormularioParaEdicao(id){
+      const item = resultados.find(r => r.id === id);
+      if(!item) return;
+
+      editandoId = id;
+      selecionadoId = id;
+
+      elData.value = item.data;
+      elBruto.value = item.bruto;
+      elTaxas.value = item.taxas;
+      elIrrf.value = item.irrf || "";
+      atualizarCalculosTela();
+
+      btnSalvar.textContent = "Atualizar Resultado";
+      mostrarStatus(`Editando registro de ${formatarData(item.data)}.`, "ok");
+      renderTabela();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    function limparCampos(redefinirData = true){
+      if(redefinirData) elData.value = hojeISO();
+      elBruto.value = "";
+      elTaxas.value = "";
+      elIrrf.value = "";
+      elResultadoDia.textContent = formatarMoeda(0);
+      elResultadoDia.className = "value";
+      editandoId = null;
+      btnSalvar.textContent = "Salvar Resultado";
+      atualizarCalculosTela();
+    }
+
+    function renderTabela(){
+      if(resultados.length === 0){
+        elTabela.innerHTML = `
+          <tr>
+            <td colspan="8" class="empty">Nenhum resultado lançado ainda.</td>
+          </tr>
+        `;
+        return;
+      }
+
+      elTabela.innerHTML = resultados.map(item => `
+        <tr class="${selecionadoId === item.id ? 'selected' : ''}">
+          <td>
+            <input type="radio" name="registroSelecionado" ${selecionadoId === item.id ? 'checked' : ''} 
+                   onchange="selecionarRegistro('${item.id}')">
+          </td>
+          <td>${formatarData(item.data)}</td>
+          <td>${formatarMoeda(item.bruto)}</td>
+          <td>${formatarMoeda(item.taxas)}</td>
+          <td>${formatarMoeda(item.irrf || 0)}</td>
+          <td class="${item.resultadoDia >= 0 ? 'positive' : 'negative'}"><strong>${formatarMoeda(item.resultadoDia)}</strong></td>
+          <td>${formatarMes(obterAnoMes(item.data))}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn-edit" onclick="preencherFormularioParaEdicao('${item.id}')">Editar</button>
+              <button class="btn-delete" onclick="excluirPorId('${item.id}')">Excluir</button>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function montarLinhasHistoricoHtml(){
+      const { resumo, mesesOrdenados } = calcularResumoFiscal();
+      const mesesDesc = [...mesesOrdenados].reverse();
+
+      if(mesesDesc.length === 0){
+        return `<tr><td colspan="11" style="padding:18px;text-align:center;">Nenhum mês lançado ainda.</td></tr>`;
+      }
+
+      return mesesDesc.map(chave => {
+        const item = resumo[chave];
+        return `
+          <tr>
+            <td>${formatarMes(chave)}</td>
+            <td>${formatarMoeda(item.bruto)}</td>
+            <td>${formatarMoeda(item.taxas)}</td>
+            <td>${formatarMoeda(item.irrf)}</td>
+            <td>${formatarMoeda(item.resultadoMes)}</td>
+            <td>${formatarMoeda(item.prejuizoCompensado)}</td>
+            <td>${formatarMoeda(item.baseTributavel)}</td>
+            <td>${formatarMoeda(item.irDevido)}</td>
+            <td>${formatarMoeda(item.irrfUsado)}</td>
+            <td>${formatarMoeda(item.darfEstimada)}</td>
+            <td>${formatarMoeda(item.prejuizoAcumulado)}</td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    function abrirHistorico(){
+      const { resumo, mesesOrdenados, prejuizoFinal } = calcularResumoFiscal();
+      const mesesDesc = [...mesesOrdenados].reverse();
+
+      if(mesesDesc.length === 0){
+        tabelaHistoricoMensal.innerHTML = `
+          <tr>
+            <td colspan="11" class="empty">Nenhum mês lançado ainda.</td>
+          </tr>
+        `;
+        historicoAcumuladoGeral.textContent = formatarMoeda(0);
+        historicoAcumuladoGeral.className = "value";
+        historicoPrejuizoAtual.textContent = formatarMoeda(0);
+        historicoPrejuizoAtual.className = "value";
+        historicoTotalMeses.textContent = "0";
+      } else {
+        tabelaHistoricoMensal.innerHTML = montarLinhasHistoricoHtml();
+
+        const acumuladoGeral = mesesOrdenados.reduce((acc, chave) => acc + resumo[chave].saldoMesAposIR, 0);
+        historicoAcumuladoGeral.textContent = formatarMoeda(acumuladoGeral);
+        historicoAcumuladoGeral.className = "value " + (acumuladoGeral >= 0 ? "positive" : "negative");
+        historicoPrejuizoAtual.textContent = formatarMoeda(prejuizoFinal);
+        historicoPrejuizoAtual.className = "value " + (prejuizoFinal > 0 ? "negative" : "positive");
+        historicoTotalMeses.textContent = String(mesesDesc.length);
+      }
+
+      modalHistorico.classList.add("show");
+    }
+
+    function exportarHistoricoPDF(){
+      const { resumo, mesesOrdenados, prejuizoFinal } = calcularResumoFiscal();
+      const acumuladoGeral = mesesOrdenados.reduce((acc, chave) => acc + resumo[chave].saldoMesAposIR, 0);
+      const dataGeracao = new Date().toLocaleString("pt-BR");
+      const linhas = montarLinhasHistoricoHtml();
+
+      const conteudo = `
+        <!DOCTYPE html>
+        <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8">
+          <title>Histórico Fiscal - Day Trade</title>
+          <style>
+            body { font-family: Arial, Helvetica, sans-serif; color:#1f2937; margin:24px; }
+            h1 { color:#123e7a; text-align:center; margin-bottom:8px; }
+            .meta { margin: 12px 0 18px; font-size:14px; }
+            .box-wrap { margin: 10px 0 18px; display:flex; gap:12px; flex-wrap:wrap; }
+            .box { flex:1; min-width:180px; border:1px solid #d7dfeb; border-radius:10px; padding:10px 12px; background:#eaf2ff; }
+            .label { color:#123e7a; font-weight:700; font-size:13px; margin-bottom:6px; }
+            .value { font-size:18px; font-weight:700; }
+            table { width:100%; border-collapse:collapse; font-size:12px; }
+            th, td { border:1px solid #d7dfeb; padding:7px; text-align:center; }
+            th { background:#eef4fb; color:#123e7a; }
+            @media print { body { margin: 10mm; } }
+          </style>
+        </head>
+        <body>
+          <h1>Histórico Fiscal - Day Trade</h1>
+          <div class="meta"><strong>Gerado em:</strong> ${dataGeracao}</div>
+          <div class="box-wrap">
+            <div class="box"><div class="label">Saldo Geral (após IR)</div><div class="value">${formatarMoeda(acumuladoGeral)}</div></div>
+            <div class="box"><div class="label">Prejuízo Atual a Compensar</div><div class="value">${formatarMoeda(prejuizoFinal)}</div></div>
+            <div class="box"><div class="label">Meses Lançados</div><div class="value">${String(mesesOrdenados.length)}</div></div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Mês</th>
+                <th>Total Bruto</th>
+                <th>Total Custos</th>
+                <th>IRRF do Mês</th>
+                <th>Resultado Líquido</th>
+                <th>Prejuízo Compensado</th>
+                <th>Base Tributável</th>
+                <th>IR 20%</th>
+                <th>IRRF Usado</th>
+                <th>DARF Estimada</th>
+                <th>Prejuízo a Compensar</th>
+              </tr>
+            </thead>
+            <tbody>${linhas}</tbody>
+          </table>
+        
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+
+</body>
+        </html>
+      `;
+
+      const win = window.open("", "_blank");
+      if(!win){
+        mostrarStatus("O navegador bloqueou a abertura do PDF. Permita pop-up e tente novamente.", "warn");
+        return;
+      }
+      win.document.open();
+      win.document.write(conteudo);
+      win.document.close();
+
+      setTimeout(() => {
+        win.focus();
+        win.print();
+      }, 700);
+
+      mostrarStatus("Relatório aberto para salvar em PDF.", "ok");
+    }
+
+    function fecharHistorico(){
+      modalHistorico.classList.remove("show");
+    }
+
+    function selecionarRegistro(id){
+      selecionadoId = id;
+      renderTabela();
+    }
+
+    function excluirPorId(id){
+      selecionadoId = id;
+      excluirSelecionado();
+    }
+
+    function carregarResultados(){
+      try{
+        const dados = localStorage.getItem(STORAGE_KEY);
+        return dados ? JSON.parse(dados) : [];
+      }catch(erro){
+        console.error("Erro ao carregar resultados:", erro);
+        return [];
+      }
+    }
+
+    function salvarResultadosNoStorage(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(resultados));
+    }
+
+    function mostrarStatus(texto, tipo){
+      elStatus.textContent = texto;
+      elStatus.className = `status ${tipo}`;
+      clearTimeout(window._statusTimeout);
+      window._statusTimeout = setTimeout(() => {
+        elStatus.textContent = "";
+        elStatus.className = "status";
+      }, 3000);
+    }
+
+    window.selecionarRegistro = selecionarRegistro;
+    window.preencherFormularioParaEdicao = preencherFormularioParaEdicao;
+    window.excluirPorId = excluirPorId;
+  </script>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+      });
+    }
+  </script>
+
+</body>
+</html>
