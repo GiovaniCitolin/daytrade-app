@@ -70,6 +70,8 @@
     .btn-clear{background:linear-gradient(180deg,#8693a6,#6c7888)}
     .btn-history{background:linear-gradient(180deg,#6d28d9,#5b21b6)}
     .btn-export{background:linear-gradient(180deg,#0f766e,#0b5d56)}
+    .btn-backup{background:linear-gradient(180deg,#7c3aed,#6d28d9)}
+    .btn-import{background:linear-gradient(180deg,#b45309,#92400e)}
     .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
     .summary-box{
       background:var(--azul-claro);border:1px solid #d8e7ff;border-radius:16px;
@@ -168,6 +170,9 @@
           <button class="btn-clear" id="btnLimpar">Limpar Campos</button>
           <button class="btn-history" id="btnHistorico">Histórico Fiscal</button>
           <button class="btn-export" id="btnExportar">Salvar Histórico em PDF</button>
+          <button class="btn-backup" id="btnBackup">Exportar Backup</button>
+          <button class="btn-import" id="btnImportar">Importar Backup</button>
+          <input type="file" id="inputBackup" accept=".json,application/json" style="display:none;" />
         </div>
 
         <div id="status" class="status"></div>
@@ -291,6 +296,9 @@
     const btnLimpar = document.getElementById("btnLimpar");
     const btnHistorico = document.getElementById("btnHistorico");
     const btnExportar = document.getElementById("btnExportar");
+    const btnBackup = document.getElementById("btnBackup");
+    const btnImportar = document.getElementById("btnImportar");
+    const inputBackup = document.getElementById("inputBackup");
     const modalHistorico = document.getElementById("modalHistorico");
     const btnFecharHistorico = document.getElementById("btnFecharHistorico");
     const tabelaHistoricoMensal = document.getElementById("tabelaHistoricoMensal");
@@ -320,6 +328,9 @@
       btnLimpar.addEventListener("click", limparCampos);
       btnHistorico.addEventListener("click", abrirHistorico);
       btnExportar.addEventListener("click", exportarHistoricoPDF);
+      btnBackup.addEventListener("click", exportarBackup);
+      btnImportar.addEventListener("click", () => inputBackup.click());
+      inputBackup.addEventListener("change", importarBackup);
       btnFecharHistorico.addEventListener("click", fecharHistorico);
       modalHistorico.addEventListener("click", (e) => {
         if(e.target === modalHistorico) fecharHistorico();
@@ -765,6 +776,111 @@
       mostrarStatus("Relatório aberto para salvar em PDF.", "ok");
     }
 
+
+    function exportarBackup(){
+      const payload = {
+        app: "Controle Fiscal - Day Trade",
+        versao: 1,
+        storageKey: STORAGE_KEY,
+        exportadoEm: new Date().toISOString(),
+        totalRegistros: resultados.length,
+        dados: resultados
+      };
+
+      const blob = new Blob(
+        [JSON.stringify(payload, null, 2)],
+        { type: "application/json;charset=utf-8" }
+      );
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup_daytrade_${hojeISO()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+      mostrarStatus("Backup exportado com sucesso.", "ok");
+    }
+
+    async function importarBackup(event){
+      const arquivo = event.target.files && event.target.files[0];
+      if(!arquivo) return;
+
+      try{
+        const texto = await arquivo.text();
+        const payload = JSON.parse(texto);
+
+        let novosDados = [];
+        if(Array.isArray(payload)){
+          novosDados = payload;
+        } else if(payload && Array.isArray(payload.dados)){
+          novosDados = payload.dados;
+        } else {
+          throw new Error("Formato inválido");
+        }
+
+        const dadosValidados = novosDados
+          .filter(item =>
+            item &&
+            typeof item.data === "string" &&
+            "bruto" in item &&
+            "taxas" in item
+          )
+          .map(item => ({
+            id: item.id || crypto.randomUUID(),
+            data: item.data,
+            bruto: Number(item.bruto) || 0,
+            taxas: Number(item.taxas) || 0,
+            irrf: Number(item.irrf) || 0,
+            resultadoDia: ("resultadoDia" in item)
+              ? (Number(item.resultadoDia) || 0)
+              : ((Number(item.bruto) || 0) - (Number(item.taxas) || 0)),
+            criadoEm: item.criadoEm || new Date().toISOString()
+          }));
+
+        if(!dadosValidados.length){
+          throw new Error("Nenhum registro válido encontrado");
+        }
+
+        const substituir = confirm(
+          "Deseja substituir os dados atuais pelo backup importado?\n\nOK = substituir tudo\nCancelar = mesclar com os dados já salvos"
+        );
+
+        if(substituir){
+          resultados = dadosValidados;
+        } else {
+          const mapa = new Map();
+
+          resultados.forEach(item => {
+            const chave = item.id || `${item.data}_${item.bruto}_${item.taxas}_${item.irrf || 0}`;
+            mapa.set(chave, item);
+          });
+
+          dadosValidados.forEach(item => {
+            const chave = item.id || `${item.data}_${item.bruto}_${item.taxas}_${item.irrf || 0}`;
+            mapa.set(chave, item);
+          });
+
+          resultados = Array.from(mapa.values());
+        }
+
+        resultados.sort((a,b) => b.data.localeCompare(a.data));
+        salvarResultadosNoStorage();
+        renderTabela();
+        atualizarResumo();
+        atualizarCalculosTela();
+        mostrarStatus("Backup importado com sucesso.", "ok");
+      } catch (erro) {
+        console.error(erro);
+        mostrarStatus("Não foi possível importar o backup. Verifique se o arquivo é um JSON válido do app.", "warn");
+      } finally {
+        event.target.value = "";
+      }
+    }
+
+
     function fecharHistorico(){
       modalHistorico.classList.remove("show");
     }
@@ -790,7 +906,10 @@
     }
 
     function salvarResultadosNoStorage(){
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(resultados));
+      const payload = JSON.stringify(resultados);
+      localStorage.setItem(STORAGE_KEY, payload);
+      localStorage.setItem(STORAGE_KEY + "_backup_auto", payload);
+      localStorage.setItem("daytrade_ultimo_backup_auto_em", new Date().toISOString());
     }
 
     function mostrarStatus(texto, tipo){
